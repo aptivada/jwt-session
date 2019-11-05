@@ -134,12 +134,16 @@ class JwtSession implements SessionHandlerInterface
     {
         try {
             if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
+                // Bearer easd8dfkdsd7dffpiesdfklsef
+                $header = explode(' ', $_SERVER['HTTP_AUTHORIZATION']);
+                $token = end($header);
+                if ($token === 'null') {
+                    return '';
+                }
                 $jwt = new JwtWrapper(
                     $this->sessionConfig->getServerName(),
                     $this->sessionConfig->getKey()
                 );
-                // Bearer easd8dfkdsd7dffpiesdfklsef
-                $token = array_pop(explode(' ', $_SERVER['HTTP_AUTHORIZATION']));
                 $data = $jwt->extractData($token);
 
                 if (empty($data->data)) {
