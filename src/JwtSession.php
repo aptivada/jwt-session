@@ -7,8 +7,6 @@ use SessionHandlerInterface;
 
 class JwtSession implements SessionHandlerInterface
 {
-    const COOKIE_PREFIX = "AUTH_BEARER_";
-
     /**
      * @var SessionConfig
      */
@@ -81,16 +79,6 @@ class JwtSession implements SessionHandlerInterface
      */
     public function destroy($session_id)
     {
-        if (!headers_sent()) {
-            setcookie(
-                self::COOKIE_PREFIX . $this->sessionConfig->getSessionContext(),
-                null,
-                (time()-3000),
-                $this->sessionConfig->getCookiePath(),
-                $this->sessionConfig->getCookieDomain()
-            );
-        }
-
         return true;
     }
 
@@ -145,12 +133,14 @@ class JwtSession implements SessionHandlerInterface
     public function read($session_id)
     {
         try {
-            if (isset($_COOKIE[self::COOKIE_PREFIX . $this->sessionConfig->getSessionContext()])) {
+            if (isset($_SERVER['Authorization'])) {
                 $jwt = new JwtWrapper(
                     $this->sessionConfig->getServerName(),
                     $this->sessionConfig->getKey()
                 );
-                $data = $jwt->extractData($_COOKIE[self::COOKIE_PREFIX . $this->sessionConfig->getSessionContext()]);
+                // Bearer easd8dfkdsd7dffpiesdfklsef
+                $token = array_pop(explode(' ', $_SERVER['Authorization']));
+                $data = $jwt->extractData($token);
 
                 if (empty($data->data)) {
                     return '';
@@ -185,26 +175,14 @@ class JwtSession implements SessionHandlerInterface
      */
     public function write($session_id, $session_data)
     {
-        $jwt = new JwtWrapper(
-            $this->sessionConfig->getServerName(),
-            $this->sessionConfig->getKey()
-        );
-        $data = $jwt->createJwtData($session_data, $this->sessionConfig->getTimeoutMinutes() * 60);
-        $token = $jwt->generateToken($data);
-
         if (!headers_sent()) {
-            setcookie(
-                self::COOKIE_PREFIX . $this->sessionConfig->getSessionContext(),
-                $token,
-                (time()+$this->sessionConfig->getTimeoutMinutes()*60) ,
-                $this->sessionConfig->getCookiePath(),
-                $this->sessionConfig->getCookieDomain(),
-                false,
-                true
+            $jwt = new JwtWrapper(
+                $this->sessionConfig->getServerName(),
+                $this->sessionConfig->getKey()
             );
-            if (defined("SETCOOKIE_FORTEST")) {
-                $_COOKIE[self::COOKIE_PREFIX . $this->sessionConfig->getSessionContext()] = $token;
-            }
+            $data = $jwt->createJwtData($session_data, $this->sessionConfig->getTimeoutMinutes() * 60);
+            $token = $jwt->generateToken($data);
+            header('X-Token: '. $token);
         }
 
         return true;
