@@ -133,13 +133,13 @@ class JwtSession implements SessionHandlerInterface
     public function read($session_id)
     {
         try {
-            if (isset($_SERVER['Authorization'])) {
+            if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
                 $jwt = new JwtWrapper(
                     $this->sessionConfig->getServerName(),
                     $this->sessionConfig->getKey()
                 );
                 // Bearer easd8dfkdsd7dffpiesdfklsef
-                $token = array_pop(explode(' ', $_SERVER['Authorization']));
+                $token = array_pop(explode(' ', $_SERVER['HTTP_AUTHORIZATION']));
                 $data = $jwt->extractData($token);
 
                 if (empty($data->data)) {
