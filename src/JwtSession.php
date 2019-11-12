@@ -133,27 +133,12 @@ class JwtSession implements SessionHandlerInterface
     public function read($session_id)
     {
         try {
-            if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
-                // Bearer easd8dfkdsd7dffpiesdfklsef
-                $header = explode(' ', $_SERVER['HTTP_AUTHORIZATION']);
-                $token = end($header);
-                if ($token === 'null') {
-                    return '';
-                }
-                $jwt = new JwtWrapper(
-                    $this->sessionConfig->getServerName(),
-                    $this->sessionConfig->getKey()
-                );
-                $data = $jwt->extractData($token);
-
-                if (empty($data->data)) {
-                    return '';
-                }
-
-                return $data->data;
+            $data = $this->getBearerTokenData();
+            if (sizeof($data) === 0) {
+                return '';
             }
-            return '';
-        } catch (\Exception $ex) {
+            return $this->serializeSessionData($data);
+        } catch (\Exception $e) {
             return '';
         }
     }
@@ -180,15 +165,21 @@ class JwtSession implements SessionHandlerInterface
     public function write($session_id, $session_data)
     {
         if (!headers_sent()) {
+            $oldTokenData = $this->getBearerTokenData();
+            $sessionDataArray = $this->unSerializeSessionData($session_data);
+
+            $sessionDataArray = \Helpers::extend($oldTokenData, $sessionDataArray);
+
+            $jsonData = json_encode($sessionDataArray);
             $jwt = new JwtWrapper(
                 $this->sessionConfig->getServerName(),
                 $this->sessionConfig->getKey()
             );
-            $data = $jwt->createJwtData($session_data, $this->sessionConfig->getTimeoutMinutes() * 60);
+            $data = $jwt->createJwtData($jsonData, $this->sessionConfig->getTimeoutMinutes() * 60);
             $token = $jwt->generateToken($data);
+            header('Access-Control-Expose-Headers: X-Token');
             header('X-Token: '. $token);
         }
-
         return true;
     }
 
@@ -198,7 +189,6 @@ class JwtSession implements SessionHandlerInterface
         foreach ($array as $key => $value) {
             $result .= $key . "|" . serialize($value);
         }
-
         return $result;
     }
 
@@ -209,7 +199,7 @@ class JwtSession implements SessionHandlerInterface
      */
     public function unSerializeSessionData($session_data)
     {
-        $return_data = array();
+        $return_data = [];
         $offset = 0;
         while ($offset < strlen($session_data)) {
             if (!strstr(substr($session_data, $offset), "|")) {
@@ -225,5 +215,35 @@ class JwtSession implements SessionHandlerInterface
         }
 
         return $return_data;
+    }
+
+    public function getBearerToken() {
+        if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
+            $header = explode(' ', $_SERVER['HTTP_AUTHORIZATION']);
+            $token = end($header);
+            if ($token === 'null') {
+                return null;
+            } else {
+                return $token;
+            }
+        }
+    }
+
+    public function getBearerTokenData() {
+        $token = $this->getBearerToken();
+        if (is_null($token)) {
+            return [];
+        }
+        $jwt = new JwtWrapper(
+            $this->sessionConfig->getServerName(),
+            $this->sessionConfig->getKey()
+        );
+        $data = $jwt->extractData($token);
+        if (empty($data->data)) {
+            return [];
+        }
+
+        $decoded_data = json_decode($data->data, true);
+        return $decoded_data;
     }
 }
