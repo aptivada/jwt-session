@@ -168,9 +168,9 @@ class JwtSession implements SessionHandlerInterface
             $oldTokenData = $this->getBearerTokenData();
             $sessionDataArray = $this->unSerializeSessionData($session_data);
 
-            $sessionDataArray = \Helpers::extend($oldTokenData, $sessionDataArray);
+            $mergedData = $this->mergeRecursive($oldTokenData, $sessionDataArray);
 
-            $jsonData = json_encode($sessionDataArray);
+            $jsonData = json_encode($mergedData);
             $jwt = new JwtWrapper(
                 $this->sessionConfig->getServerName(),
                 $this->sessionConfig->getKey()
@@ -238,12 +238,31 @@ class JwtSession implements SessionHandlerInterface
             $this->sessionConfig->getServerName(),
             $this->sessionConfig->getKey()
         );
-        $data = $jwt->extractData($token);
-        if (empty($data->data)) {
+        try {
+            $data = $jwt->extractData($token);
+            if (empty($data->data)) {
+                return [];
+            }
+
+            $decoded_data = json_decode($data->data, true);
+            return $decoded_data;
+        } catch (\Exception $e) {
             return [];
         }
-
-        $decoded_data = json_decode($data->data, true);
-        return $decoded_data;
     }
+
+	public function mergeRecursive(array &$array1, array &$array2){
+		$merged = $array1;
+
+		foreach ($array2 as $key => &$value){
+			if (is_array($value) && isset($merged[$key]) && is_array($merged[$key])){
+				$merged [$key] = $this->mergeRecursive( $merged [$key], $value );
+			}
+			else {
+				$merged[$key] = $value;
+			}
+		}
+		return $merged;
+	}
+
 }
