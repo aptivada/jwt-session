@@ -168,7 +168,7 @@ class JwtSession implements SessionHandlerInterface
             $oldTokenData = $this->getBearerTokenData();
             $sessionDataArray = $this->unSerializeSessionData($session_data);
 
-            $mergedData = $this->mergeRecursive($oldTokenData, $sessionDataArray);
+            $mergedData = array_merge($oldTokenData, $sessionDataArray);
 
             $jsonData = json_encode($mergedData);
             $jwt = new JwtWrapper(
